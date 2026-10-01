@@ -1,4 +1,6 @@
 <script setup>
+import { ACHIEVEMENTS } from '../constants/garden'
+
 defineProps({
   dashboard: {
     type: Object,
@@ -46,7 +48,7 @@ defineProps({
   <section class="panel goal-panel">
     <div class="panel-heading">
       <h2>养护目标</h2>
-      <span>{{ achievements.earned.length }} / 12 枚徽章</span>
+      <span>{{ achievements.earned.length }} / {{ ACHIEVEMENTS.length }} 枚徽章</span>
     </div>
     <div v-for="goal in goals" :key="goal.id" class="goal-row">
       <div>

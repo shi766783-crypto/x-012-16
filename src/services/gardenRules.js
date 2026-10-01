@@ -79,30 +79,58 @@ export function calculateAchievements(plants, careRecords, growthRecords, pestRe
     growthRecords.filter((record) => record.bloomState === '盛开').map((record) => record.plantId),
   ).size
   const dashboard = getDashboard(plants, careRecords, growthRecords)
-  const earnedIds = new Set()
 
-  if (plants.length >= 1) earnedIds.add('first-plant')
-  if (plants.length >= 5) earnedIds.add('plant-five')
-  if (plants.length >= 10) earnedIds.add('plant-ten')
-  if (dashboard.averageScore >= 80) earnedIds.add('green-thumb')
-  if (wateringCount >= 5) earnedIds.add('watering-rookie')
-  if (wateringCount >= 20) earnedIds.add('watering-master')
-  if (fertilizingCount >= 5) earnedIds.add('fertilizer-care')
-  if (bloomingPlants >= 3) earnedIds.add('bloom-garden')
-  if (growthRecords.length >= 10) earnedIds.add('growth-watcher')
-  if (pestRecords.length >= 3) earnedIds.add('plant-doctor')
-  if (goals.some((goal) => goal.completed || goal.progressDays >= goal.targetDays)) earnedIds.add('thirty-day-goal')
+  // 每个徽章的原始指标值；是否解锁与展示进度都拿这里的值和 ACHIEVEMENTS.target 比较
+  const metrics = {
+    plants: plants.length,
+    averageScore: dashboard.averageScore,
+    watering: wateringCount,
+    fertilizing: fertilizingCount,
+    blooming: bloomingPlants,
+    growth: growthRecords.length,
+    pest: pestRecords.length,
+    streak: getGoalWateringProgress(goals),
+  }
 
-  const provisionalPoints = ACHIEVEMENTS.filter((item) => earnedIds.has(item.id)).reduce(
+  // 园艺大师统计的是“其它徽章”已带来的积分，先判定其余徽章
+  const baseBadges = ACHIEVEMENTS.filter((item) => item.id !== 'garden-master')
+  const earnedIds = new Set(
+    baseBadges.filter((item) => metrics[item.metric] >= item.target).map((item) => item.id),
+  )
+  metrics.points = ACHIEVEMENTS.filter((item) => earnedIds.has(item.id)).reduce(
     (sum, item) => sum + item.points,
     0,
   )
-  if (provisionalPoints >= 180) earnedIds.add('garden-master')
+
+  const gardenMaster = ACHIEVEMENTS.find((item) => item.id === 'garden-master')
+  if (metrics.points >= gardenMaster.target) earnedIds.add(gardenMaster.id)
 
   const earned = ACHIEVEMENTS.filter((item) => earnedIds.has(item.id))
   const points = earned.reduce((sum, item) => sum + item.points, 0)
 
-  return { earned, points }
+  const progress = ACHIEVEMENTS.map((item) => {
+    const raw = metrics[item.metric] ?? 0
+    return {
+      id: item.id,
+      // 未解锁时展示真实值（封顶到目标，避免进度条溢出），目标值即解锁阈值本身
+      current: Math.min(raw, item.target),
+      target: item.target,
+      unit: item.unit,
+      remaining: Math.max(item.target - raw, 0),
+      earned: earnedIds.has(item.id),
+    }
+  })
+
+  return { earned, points, progress }
+}
+
+function getGoalWateringProgress(goals) {
+  // 与原来的解锁条件 goals.some(goal => goal.completed || progressDays >= targetDays) 完全一致
+  const reached = goals.some(
+    (goal) => goal.completed || goal.progressDays >= goal.targetDays,
+  )
+  if (reached) return ACHIEVEMENTS.find((item) => item.id === 'thirty-day-goal').target
+  return goals.reduce((max, goal) => Math.max(max, goal.progressDays || 0), 0)
 }
 
 export function updateWateringGoal(goals, careRecords) {
