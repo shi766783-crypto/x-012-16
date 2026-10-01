@@ -109,7 +109,7 @@ export function useGardenStore() {
   const dashboard = computed(() => getDashboard(state.plants, state.careRecords, state.growthRecords))
   const goals = computed(() => updateWateringGoal(state.goals, state.careRecords))
   const achievements = computed(() =>
-    calculateAchievements(state.plants, state.careRecords, state.growthRecords, state.pestRecords, goals.value),
+    calculateAchievements(state.plants, state.careRecords, state.growthRecords, state.pestRecords),
   )
   const leaderboards = computed(() => buildLeaderboards(state.plants, state.careRecords, state.growthRecords))
 

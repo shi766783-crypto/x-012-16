@@ -72,44 +72,69 @@ export function buildTimeline(plantId, careRecords, growthRecords, pestRecords) 
   return [...careItems, ...growthItems, ...pestItems].sort((a, b) => b.date.localeCompare(a.date))
 }
 
-export function calculateAchievements(plants, careRecords, growthRecords, pestRecords, goals) {
+// 汇总徽章所依赖的全部度量值；解锁判定与徽章进度展示都只读这一份数据
+export function collectAchievementMetrics(plants, careRecords, growthRecords, pestRecords) {
   const wateringCount = careRecords.filter((record) => record.type === '浇水').length
   const fertilizingCount = careRecords.filter((record) => record.type === '施肥').length
   const bloomingPlants = new Set(
     growthRecords.filter((record) => record.bloomState === '盛开').map((record) => record.plantId),
   ).size
   const dashboard = getDashboard(plants, careRecords, growthRecords)
-  const earnedIds = new Set()
 
-  if (plants.length >= 1) earnedIds.add('first-plant')
-  if (plants.length >= 5) earnedIds.add('plant-five')
-  if (plants.length >= 10) earnedIds.add('plant-ten')
-  if (dashboard.averageScore >= 80) earnedIds.add('green-thumb')
-  if (wateringCount >= 5) earnedIds.add('watering-rookie')
-  if (wateringCount >= 20) earnedIds.add('watering-master')
-  if (fertilizingCount >= 5) earnedIds.add('fertilizer-care')
-  if (bloomingPlants >= 3) earnedIds.add('bloom-garden')
-  if (growthRecords.length >= 10) earnedIds.add('growth-watcher')
-  if (pestRecords.length >= 3) earnedIds.add('plant-doctor')
-  if (goals.some((goal) => goal.completed || goal.progressDays >= goal.targetDays)) earnedIds.add('thirty-day-goal')
+  return {
+    plants: plants.length,
+    wateringCount,
+    fertilizingCount,
+    bloomingPlants,
+    averageScore: dashboard.averageScore,
+    growthRecords: growthRecords.length,
+    pestRecords: pestRecords.length,
+    wateringStreak: getCurrentWateringStreak(careRecords),
+  }
+}
 
-  const provisionalPoints = ACHIEVEMENTS.filter((item) => earnedIds.has(item.id)).reduce(
-    (sum, item) => sum + item.points,
-    0,
+export function calculateAchievements(plants, careRecords, growthRecords, pestRecords) {
+  const metrics = collectAchievementMetrics(plants, careRecords, growthRecords, pestRecords)
+
+  // 园艺大师的阈值按其他徽章累计积分计算，先算出直接徽章的解锁结果
+  const directAchievements = ACHIEVEMENTS.filter((item) => !item.earnedByPoints)
+  const directEarnedIds = new Set(
+    directAchievements
+      .filter((item) => metrics[item.metric] >= item.target)
+      .map((item) => item.id),
   )
-  if (provisionalPoints >= 180) earnedIds.add('garden-master')
+  const otherAchievementPoints = directAchievements
+    .filter((item) => directEarnedIds.has(item.id))
+    .reduce((sum, item) => sum + item.points, 0)
+
+  const allMetrics = { ...metrics, otherAchievementPoints }
+  const earnedIds = new Set(directEarnedIds)
+  for (const item of ACHIEVEMENTS) {
+    if (item.earnedByPoints && otherAchievementPoints >= item.target) earnedIds.add(item.id)
+  }
 
   const earned = ACHIEVEMENTS.filter((item) => earnedIds.has(item.id))
   const points = earned.reduce((sum, item) => sum + item.points, 0)
+  const badges = ACHIEVEMENTS.map((item) => ({
+    ...item,
+    current: allMetrics[item.metric] ?? 0,
+    earned: earnedIds.has(item.id),
+  }))
 
-  return { earned, points }
+  return { earned, points, badges }
+}
+
+export function getCurrentWateringStreak(careRecords) {
+  const wateringDates = [
+    ...new Set(
+      careRecords.filter((record) => record.type === '浇水').map((record) => record.date),
+    ),
+  ]
+  return countCurrentStreak(wateringDates)
 }
 
 export function updateWateringGoal(goals, careRecords) {
-  const wateringDates = [...new Set(careRecords.filter((record) => record.type === '浇水').map((record) => record.date))]
-    .sort()
-    .reverse()
-  const streak = countCurrentStreak(wateringDates)
+  const streak = getCurrentWateringStreak(careRecords)
 
   return goals.map((goal) => {
     if (goal.id !== 'goal-30-watering') return goal
@@ -153,10 +178,10 @@ function calculateAverageCareScore(plants, careRecords, growthRecords) {
   return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
 }
 
-function countCurrentStreak(descDates) {
+function countCurrentStreak(wateringDates) {
   let cursor = todayISO()
   let streak = 0
-  const dates = new Set(descDates)
+  const dates = new Set(wateringDates)
 
   while (dates.has(cursor)) {
     streak += 1

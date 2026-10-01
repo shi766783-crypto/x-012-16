@@ -361,6 +361,59 @@ dd {
   color: #657266;
 }
 
+.badge-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.badge-status {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: #7a5a10;
+  background: #ffe39c;
+}
+
+.badge-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.badge-progress progress {
+  flex: 1;
+  height: 10px;
+  accent-color: #2f7d4f;
+}
+
+.badge-card:not(.earned) .badge-progress progress {
+  accent-color: #8aa37b;
+}
+
+.badge-progress-text {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  color: #46524a;
+}
+
+.badge-percent {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: #657266;
+}
+
+.badge-points {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: #2f7d4f;
+}
+
 .ranking-list {
   display: grid;
   gap: 10px;

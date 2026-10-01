@@ -54,7 +54,7 @@ const {
     />
 
     <Leaderboards :leaderboards="leaderboards" />
-    <AchievementBoard :earned="achievements.earned" />
+    <AchievementBoard :badges="achievements.badges" />
 
     <ProfileCenter
       :achievements="achievements"
